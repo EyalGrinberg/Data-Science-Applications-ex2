@@ -1,12 +1,14 @@
 ---
-title: "DSApps 2023 @ TAU: Assignment 2"
+title: 'DSApps 2023 @ TAU: Assignment 2'
 author: "Giora Simchoni"
 date: "`r Sys.Date()`"
-output: 
+output:
+  word_document:
+    toc: yes
   html_document:
-    toc: true
-    toc_float: true
-subtitle: The Tidyverse - Part B
+    toc: yes
+    toc_float: yes
+subtitle: "The Tidyverse - Part B"
 ---
 
 ```{r child = "setup.Rmd"}
@@ -64,7 +66,8 @@ dirty_data <- read_excel("data/UN_MigrantStockByOriginAndDestination_2019.xlsx",
 If you look at what you got (e.g. with `View(dirty_data)` in RStudio) you would be appalled. Hopefully you would then reach the conclusion you do not need the first 15 rows. Find out how to read the sheet **again** skipping the first 15 rows.
 
 ```{r}
-### YOUR CODE HERE ###
+#view(dirty_data)
+dirty_data <- read_excel("data/UN_MigrantStockByOriginAndDestination_2019.xlsx", sheet = 3, skip = 15)
 ```
 
 The data looks much better, but still. R missed the names of the first few columns (because they appear in merged cells!) so we need to change them:
@@ -88,7 +91,7 @@ clean_country_name <- function(name) {
   str_replace_all(str_replace_all(str_to_lower(name), " |-", "_"), "'|,|\\(|\\)", "")
 }
 
-### YOUR CODE HERE ###
+colnames(dirty_data) <- clean_country_name(colnames(dirty_data))
 ```
 
 You should see the problematic column names improved (though not perfect):
@@ -100,26 +103,26 @@ colnames(dirty_data)[c(13, 17, 34, 61)]
 Another issue with this dataset is that many of the rows are simply subtotals of the number of immigrants per specific area, e.g. row 1 (17 in the original Excel sheet) is the total for the entire world. Luckily there is a way to exclude all such rows, with the `code` column, filter only rows with code smaller than 900:
 
 ```{r}
-# dirty_data <- ### YOUR CODE HERE ###
+dirty_data <- dirty_data %>% filter(code < 900)
 ```
 
 While you're at it, we don't need columns `c(4, 6, 7, 8, 9)`:
 
 ```{r}
-# dirty_data <- ### YOUR CODE HERE ###
+dirty_data <- dirty_data[,-c(4, 6, 7, 8, 9)]
 ```
 
 Check you have a table with 1624 rows and 236 columns.
 
 ```{r}
-### YOUR CODE HERE ###
+dim(dirty_data)
 ```
 
 Now let's use the `clean_country_name()` to also clean the `country` column:
 
 ```{r}
-# dirty_data <- dirty_data %>%
-#   mutate(### YOUR CODE HERE ###)
+ dirty_data <- dirty_data %>%
+  mutate(country = clean_country_name(country))
 ```
 
 There are different values for missing values as said in class and we are going to assume `NA` means 0 migration:
@@ -134,8 +137,8 @@ dirty_data <- dirty_data %>%
 Finally, you may be shocked to know that all country columns (all but the first 4 columns) which contain the **number** of migrants from the row country to the column country, are actually `character` columns! Convert them `as.numeric`:
 
 ```{r}
-# dirty_data <- dirty_data %>%
-#   mutate(### YOUR CODE HERE ###)
+dirty_data <- dirty_data %>%
+  mutate(across(-c("year","order","country","code"), as.numeric))
 ```
 
 A big problem is that `dirty_data` now holds only the data for men. We can't just copy-paste everything, we need a function. Moreover, many of the steps could be united into a single pipe.
@@ -143,18 +146,18 @@ A big problem is that `dirty_data` now holds only the data for men. We can't jus
 Complete the `tidy_up_data()` function, which receives a `.sheet` number and a `.gender` string, and returns the (almost) tidy data for that gender. Uncomment the usage of the function to get the `migration_men` and `migration_women` datasets. Bonus points if you can wrap `clean_country_name()`  inside a function called `clean_country_name_data()` to clean the names of the dataset **inside a pipe**, not as done above. Also notice there is no `country_dest` column, I want you to rename the `country` column.
 
 ```{r}
-# tidy_up_data <- function(.sheet, .gender) {
-#   ### YOUR CODE HERE ###
-# 
-#   dirty_data %>%
-#     ### YOUR CODE HERE ### %>%
-#     mutate(gender = .gender) %>%
-#     select(gender, year, code, country_dest, everything())
-# }
-# 
-# # Usage
-# migration_men <- tidy_up_data(3, "men")
-# migration_women <- tidy_up_data(4, "women")
+tidy_up_data <- function(.sheet, .gender) {
+  dirty_data <- read_excel("data/UN_MigrantStockByOriginAndDestination_2019.xlsx", sheet = .sheet, skip = 15)
+  colnames(dirty_data)[1:6] <- c("year", "order", "country", "notes", "code", "type_of_data")
+  dirty_data %>%
+    rename(country_dest = country) %>%
+    mutate(gender = .gender) %>%
+    select(gender, year, code, country_dest, everything())
+}
+
+# Usage
+migration_men <- tidy_up_data(3, "men")
+migration_women <- tidy_up_data(4, "women")
 ```
 
 Bind the two datasets with the `bind_rows()` function and you have the `migration` dataset we used in class. You can save it as a R object with the `write_rds()` function:
@@ -162,7 +165,7 @@ Bind the two datasets with the `bind_rows()` function and you have the `migratio
 ```{r}
 migration <- bind_rows(migration_men, migration_women)
 
-# write_rds(migration, "data/migration.rds")
+write_rds(migration, "data/migration.rds")
 ```
 
 Be sure to use `pivot_longer()` and `pivot_wider()` as we did in class to go back and forth between wide and long formats:
@@ -415,11 +418,11 @@ First, from the `sw_films` list, create a `films` data.frame, holding for each S
 * there's *very* little you need to do if you followed along and you don't rewrite functions already written...
 
 ```{r}
-# ### YOUR CODE HERE ###
-# films <- ### YOUR CODE HERE ###
-# films
-```
+char_attrs <- c("title"= FALSE, "episode_id"= FALSE, "director"= FALSE, "release_date"= FALSE, "characters"= TRUE, "planets"= TRUE, "starships"= TRUE, "vehicles"= TRUE)
 
+films <- sw_films %>% map_dfr(get_sw_element_details, char_attrs)
+films
+```
 Now, the `chars` dataset isn't perfect:
 
 * Redo it, adding variables "birth_year", "homeworld" and "films"
@@ -435,10 +438,27 @@ You may write functions to help you but I would prefer if the actual cleaning wo
 You must use at least one `purrr` mapping function such as `map_dbl()`.
 
 ```{r}
-# ### POSSIBLE ADDITIONAL FUNCTIONS AND STUFF ###
-# 
-# chars <- ### YOUR CODE HERE ###
+char_attrs <- c("name" = FALSE, "gender" = FALSE, "height" = FALSE, "mass" = FALSE, "species" = FALSE, "vehicles" = TRUE, "birth_year" = FALSE, "homeworld" = FALSE, films = TRUE)
+chars <- sw_people %>% map_dfr(get_sw_element_details, char_attrs)
+
+chars <- chars %>% 
+  mutate(
+    across(c(height, mass), ~if_else(. %in% c("n/a", "unknown"), NA_real_, as.numeric(.))),
+    gender = if_else(gender %in% c("n/a", "unknown"), NA_character_, gender),
+    homeworld = gsub("[^0-9]+", "", homeworld),
+    birth_year = gsub("[^0-9]+", "", birth_year),
+    character_id = row_number()
+  ) %>% 
+  select(character_id, everything())
+
+chars
 ```
+
+```{r}
+# bonus: change films
+chars %>% mutate(films = (gsub("[^0-9]+", "", films))) 
+```
+
 
 Finally, I just want you to acknowledge the fact that we didn't use a single for loop. For loops are not necessarily "bad" or "slow" but there are available solutions like `purrr`, that allow you to write more concise, less error-prone code. Make yourself love it, it will pay off.
 
@@ -455,17 +475,17 @@ Look at the משקים חקלאיים attached Excel file in the data folder. Th
 Which Broman and Woo principles are violated in this file? Give at least 4 and explain each. You can add a few from your own experience if you like.
 
 ```{r}
-# principle 1:
-# explanation
+# principle 1: Choose Good Names for Things
+# explanation - the names of the observations contain spaces, for example "jewish - other"
 
-# principle 2:
-# explanation
+# principle 2: no empty cells 
+# explanation - D11 is an empty cell
 
-# principle 3:
-# explanation
+# principle 3: create a data dictionary
+# explanation - the data does not have a separate file that explains what all of the variables are.
 
-# principle 4:
-# explanation
+# principle 4: Do Not Use Font Color or Highlighting as Data
+# explanation - all of the districts rows are highlighted
 ```
 
 ### Wrap up
